@@ -81,6 +81,14 @@
 
     <!-- Main Content -->
     <main class="main-content">
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <div class="loading-spinner">
+          <div class="spinner"></div>
+          <span>Đang tải dữ liệu...</span>
+        </div>
+      </div>
+
       <!-- Header -->
       <header class="main-header">
         <div class="header-left">
@@ -89,7 +97,10 @@
               {{ getGreeting }}, <span class="highlight">{{ userName }}</span>! 👋
             </h1>
             <p class="greeting-subtitle">
-              Bạn có <strong>{{ taskStats.pending || 0 }}</strong> công việc cần hoàn thành hôm nay
+              Bạn có <strong>{{ taskStats.dueToday || 0 }}</strong> công việc cần hoàn thành hôm nay
+              <span v-if="taskStats.overdue > 0" class="overdue-badge">
+                <i class="fa-solid fa-exclamation-triangle"></i> {{ taskStats.overdue }} quá hạn
+              </span>
             </p>
           </div>
         </div>
@@ -122,9 +133,9 @@
               <span class="stat-value">{{ taskStats.total }}</span>
               <span class="stat-label">Tổng công việc</span>
             </div>
-            <div class="stat-trend up">
-              <i class="fa-solid fa-arrow-trend-up"></i>
-              <span>+12%</span>
+            <div class="stat-trend" :class="taskStats.growthRate >= 0 ? 'up' : 'down'">
+              <i :class="taskStats.growthRate >= 0 ? 'fa-solid fa-arrow-trend-up' : 'fa-solid fa-arrow-trend-down'"></i>
+              <span>{{ taskStats.growthRate >= 0 ? '+' : '' }}{{ taskStats.growthRate }}%</span>
             </div>
             <div class="stat-wave"></div>
           </div>
@@ -190,6 +201,30 @@
             </div>
             <div class="stat-wave"></div>
           </div>
+
+          <!-- Due This Week Card -->
+          <div class="stat-card stat-week">
+            <div class="stat-icon">
+              <i class="fa-solid fa-calendar-week"></i>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value">{{ taskStats.dueThisWeek }}</span>
+              <span class="stat-label">Trong tuần</span>
+            </div>
+            <div class="stat-wave"></div>
+          </div>
+
+          <!-- Average Progress Card -->
+          <div class="stat-card stat-avg-progress">
+            <div class="stat-icon">
+              <i class="fa-solid fa-chart-simple"></i>
+            </div>
+            <div class="stat-content">
+              <span class="stat-value">{{ progressStats.averageProgress }}%</span>
+              <span class="stat-label">Tiến độ TB</span>
+            </div>
+            <div class="stat-wave"></div>
+          </div>
         </div>
       </section>
 
@@ -204,17 +239,20 @@
               </div>
               <div>
                 <h3>Hiệu suất làm việc</h3>
-                <p>Thống kê 6 tháng gần đây</p>
+                <p>{{ chartPeriod === 'week' ? 'Thống kê 4 tuần gần đây' : 'Thống kê 6 tháng gần đây' }}</p>
               </div>
             </div>
             <div class="card-actions">
-              <button class="btn-filter active">Tuần</button>
-              <button class="btn-filter">Tháng</button>
-              <button class="btn-filter">Năm</button>
+              <button class="btn-filter" :class="{ active: chartPeriod === 'week' }" @click="updateChartData('week')">Tuần</button>
+              <button class="btn-filter" :class="{ active: chartPeriod === 'month' }" @click="updateChartData('month')">Tháng</button>
             </div>
           </div>
           <div class="card-body">
-            <Line :data="chartData" :options="chartOptions" />
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-color purple"></span> Hoàn thành</span>
+              <span class="legend-item"><span class="legend-color green"></span> Tạo mới</span>
+            </div>
+            <Line :data="chartData" :options="chartOptions" :key="chartPeriod" />
           </div>
         </div>
 
@@ -372,7 +410,7 @@
               </div>
               <div>
                 <h3>Dự án đang thực hiện</h3>
-                <p>3 dự án hoạt động</p>
+                <p>{{ projectStats.activeProjects }} dự án hoạt động</p>
               </div>
             </div>
             <router-link to="/projects" class="btn-view-all">
@@ -381,8 +419,8 @@
             </router-link>
           </div>
           <div class="card-body">
-            <div class="projects-grid">
-              <div class="project-item" v-for="project in projects" :key="project.id">
+            <div class="projects-grid" v-if="projects.length > 0">
+              <div class="project-item" v-for="project in projects.slice(0, 3)" :key="project.id">
                 <div class="project-header">
                   <div class="project-icon" :class="project.color">
                     <i :class="project.icon"></i>
@@ -413,6 +451,96 @@
                 </div>
               </div>
             </div>
+            <div v-else class="empty-state">
+              <i class="fa-solid fa-folder-open"></i>
+              <p>Chưa có dự án nào</p>
+              <router-link to="/projects" class="btn-create">Tạo dự án mới</router-link>
+            </div>
+          </div>
+        </div>
+
+        <!-- Priority Stats Card -->
+        <div class="card priority-card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="title-icon red">
+                <i class="fa-solid fa-flag"></i>
+              </div>
+              <div>
+                <h3>Theo độ ưu tiên</h3>
+                <p>Phân bố công việc</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="priority-stats">
+              <div class="priority-item high">
+                <div class="priority-info">
+                  <span class="priority-label">Cao</span>
+                  <span class="priority-count">{{ priorityStats.high }}</span>
+                </div>
+                <div class="priority-bar">
+                  <div class="priority-fill" :style="{ width: getPriorityPercent('high') + '%' }"></div>
+                </div>
+                <span class="priority-pending" v-if="priorityStats.highPending > 0">
+                  {{ priorityStats.highPending }} chưa xong
+                </span>
+              </div>
+              <div class="priority-item medium">
+                <div class="priority-info">
+                  <span class="priority-label">Trung bình</span>
+                  <span class="priority-count">{{ priorityStats.medium }}</span>
+                </div>
+                <div class="priority-bar">
+                  <div class="priority-fill" :style="{ width: getPriorityPercent('medium') + '%' }"></div>
+                </div>
+              </div>
+              <div class="priority-item low">
+                <div class="priority-info">
+                  <span class="priority-label">Thấp</span>
+                  <span class="priority-count">{{ priorityStats.low }}</span>
+                </div>
+                <div class="priority-bar">
+                  <div class="priority-fill" :style="{ width: getPriorityPercent('low') + '%' }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Distribution Card -->
+        <div class="card progress-dist-card">
+          <div class="card-header">
+            <div class="card-title">
+              <div class="title-icon yellow">
+                <i class="fa-solid fa-chart-pie"></i>
+              </div>
+              <div>
+                <h3>Phân bố tiến độ</h3>
+                <p>Theo mức hoàn thành</p>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="progress-distribution">
+              <div class="dist-item" v-for="(value, range) in progressStats.distribution" :key="range">
+                <div class="dist-label">{{ range }}%</div>
+                <div class="dist-bar-container">
+                  <div class="dist-bar" :style="{ width: getDistributionPercent(value) + '%' }" :class="getDistClass(range)"></div>
+                </div>
+                <div class="dist-value">{{ value }}</div>
+              </div>
+            </div>
+            <div class="progress-insights" v-if="progressStats.nearCompletion > 0 || progressStats.stuckTasks > 0">
+              <div class="insight" v-if="progressStats.nearCompletion > 0">
+                <i class="fa-solid fa-rocket"></i>
+                <span>{{ progressStats.nearCompletion }} công việc sắp hoàn thành (>80%)</span>
+              </div>
+              <div class="insight warning" v-if="progressStats.stuckTasks > 0">
+                <i class="fa-solid fa-exclamation-circle"></i>
+                <span>{{ progressStats.stuckTasks }} công việc đang bị trì hoãn</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -430,11 +558,12 @@ import {
   Title,
   CategoryScale,
   Tooltip,
-  Filler
+  Filler,
+  Legend
 } from "chart.js";
 import reminderService from '../../../services/reminderService';
 import activityLogService from '../../../services/activityLogService';
-import taskService from '../../../services/taskService';
+import dashboardService from '../../../services/dashboardService';
 
 ChartJS.register(
   LineElement,
@@ -443,7 +572,8 @@ ChartJS.register(
   Title,
   CategoryScale,
   Tooltip,
-  Filler
+  Filler,
+  Legend
 );
 
 export default {
@@ -458,6 +588,7 @@ export default {
         month: 'long',
         year: 'numeric'
       }),
+      loading: true,
       reminders: [],
       activityLogs: [],
       recentTasks: [],
@@ -466,52 +597,38 @@ export default {
         completed: 0,
         inProgress: 0,
         pending: 0,
-        overdue: 0
+        overdue: 0,
+        dueToday: 0,
+        dueThisWeek: 0,
+        completionRate: 0,
+        growthRate: 0
       },
-      projects: [
-        {
-          id: 1,
-          name: 'Thiết kế UI Dashboard',
-          icon: 'fa-solid fa-palette',
-          color: 'purple',
-          status: 'Đang thực hiện',
-          statusClass: 'active',
-          progress: 75,
-          completedTasks: 15,
-          totalTasks: 20,
-          team: ['A', 'B', 'C', 'D', 'E']
-        },
-        {
-          id: 2,
-          name: 'App Mobile',
-          icon: 'fa-solid fa-mobile-screen',
-          color: 'blue',
-          status: 'Đang thực hiện',
-          statusClass: 'active',
-          progress: 45,
-          completedTasks: 9,
-          totalTasks: 20,
-          team: ['D', 'E', 'F']
-        },
-        {
-          id: 3,
-          name: 'Marketing Campaign',
-          icon: 'fa-solid fa-bullhorn',
-          color: 'orange',
-          status: 'Rà soát',
-          statusClass: 'review',
-          progress: 90,
-          completedTasks: 18,
-          totalTasks: 20,
-          team: ['G', 'H', 'I']
-        }
-      ],
+      progressStats: {
+        averageProgress: 0,
+        nearCompletion: 0,
+        stuckTasks: 0,
+        distribution: {}
+      },
+      priorityStats: {
+        high: 0,
+        medium: 0,
+        low: 0,
+        highPending: 0,
+        distribution: []
+      },
+      projects: [],
+      projectStats: {
+        totalProjects: 0,
+        activeProjects: 0,
+        completedProjects: 0
+      },
+      chartPeriod: 'month',
       chartData: {
-        labels: ["T1", "T2", "T3", "T4", "T5", "T6"],
+        labels: [],
         datasets: [
           {
             label: "Công việc hoàn thành",
-            data: [12, 19, 15, 25, 22, 30],
+            data: [],
             tension: 0.4,
             fill: true,
             borderColor: "#667eea",
@@ -527,8 +644,37 @@ export default {
             pointBorderWidth: 3,
             pointRadius: 6,
             pointHoverRadius: 8
+          },
+          {
+            label: "Công việc tạo mới",
+            data: [],
+            tension: 0.4,
+            fill: true,
+            borderColor: "#22c55e",
+            backgroundColor: (context) => {
+              const ctx = context.chart.ctx;
+              const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+              gradient.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+              gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+              return gradient;
+            },
+            pointBackgroundColor: "#22c55e",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8
           }
         ]
+      },
+      monthlyStats: {
+        labels: [],
+        completed: [],
+        created: []
+      },
+      weeklyStats: {
+        labels: [],
+        completed: [],
+        created: []
       },
       chartOptions: {
         responsive: true,
@@ -580,69 +726,204 @@ export default {
       return 'Chào buổi tối';
     },
     overallProgress() {
-      if (this.taskStats.total === 0) return 0;
-      return Math.round((this.taskStats.completed / this.taskStats.total) * 100);
+      return this.taskStats.completionRate || 0;
+    },
+    activeProjects() {
+      return this.projects.filter(p => p.status !== 'Hoàn thành').length;
     }
   },
   mounted() {
     this.loadUserInfo();
-    this.loadReminders();
-    this.loadActivityLogs();
-    this.loadTaskStats();
-    this.loadRecentTasks();
+    this.loadDashboardData();
   },
   methods: {
     loadUserInfo() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      this.userName = user.name || 'Bạn';
+      this.userName = user.ho_va_ten || user.name || 'Bạn';
     },
 
-    async loadReminders() {
+    async loadDashboardData() {
+      this.loading = true;
       try {
-        const response = await reminderService.getUpcoming();
-        this.reminders = response.data || [];
+        // Load all data in parallel
+        const [statsRes, recentTasksRes, remindersRes, activityRes] = await Promise.all([
+          dashboardService.getStatistics(),
+          dashboardService.getRecentTasks(),
+          reminderService.getUpcoming(),
+          activityLogService.list({ limit: 10 })
+        ]);
+
+        // Process statistics
+        if (statsRes.data?.data) {
+          const data = statsRes.data.data;
+          
+          // Task stats
+          if (data.task_stats) {
+            this.taskStats = {
+              total: data.task_stats.total || 0,
+              completed: data.task_stats.completed || 0,
+              inProgress: data.task_stats.in_progress || 0,
+              pending: data.task_stats.pending || 0,
+              overdue: data.task_stats.overdue || 0,
+              dueToday: data.task_stats.due_today || 0,
+              dueThisWeek: data.task_stats.due_this_week || 0,
+              completionRate: data.task_stats.completion_rate || 0,
+              growthRate: data.task_stats.growth_rate || 0
+            };
+          }
+
+          // Progress stats
+          if (data.progress_stats) {
+            this.progressStats = {
+              averageProgress: data.progress_stats.average_progress || 0,
+              nearCompletion: data.progress_stats.near_completion || 0,
+              stuckTasks: data.progress_stats.stuck_tasks || 0,
+              distribution: data.progress_stats.distribution || {}
+            };
+          }
+
+          // Priority stats
+          if (data.priority_stats) {
+            this.priorityStats = {
+              high: data.priority_stats.high || 0,
+              medium: data.priority_stats.medium || 0,
+              low: data.priority_stats.low || 0,
+              highPending: data.priority_stats.high_pending || 0,
+              distribution: data.priority_stats.distribution || []
+            };
+          }
+
+          // Project stats
+          if (data.project_stats) {
+            this.projectStats = {
+              totalProjects: data.project_stats.total_projects || 0,
+              activeProjects: data.project_stats.active_projects || 0,
+              completedProjects: data.project_stats.completed_projects || 0
+            };
+            
+            // Transform projects data
+            this.projects = (data.project_stats.projects || []).map(p => ({
+              id: p.id,
+              name: p.name,
+              icon: p.icon || 'fa-solid fa-folder',
+              color: p.color || 'purple',
+              status: p.status,
+              statusClass: this.getProjectStatusClass(p.status),
+              progress: p.progress || 0,
+              completedTasks: p.completed_tasks || 0,
+              totalTasks: p.total_tasks || 0,
+              team: this.generateTeamAvatars(p.name)
+            }));
+          }
+
+          // Monthly stats for chart
+          if (data.monthly_stats) {
+            this.monthlyStats = data.monthly_stats;
+          }
+
+          // Weekly stats for chart
+          if (data.weekly_stats) {
+            this.weeklyStats = data.weekly_stats;
+          }
+
+          // Update chart with monthly data by default
+          this.updateChartData('month');
+        }
+
+        // Recent tasks
+        if (recentTasksRes.data?.data) {
+          this.recentTasks = recentTasksRes.data.data.slice(0, 5);
+        }
+
+        // Reminders
+        this.reminders = remindersRes.data || [];
+
+        // Activity logs
+        this.activityLogs = activityRes.data || [];
+
       } catch (error) {
-        console.error('Error loading reminders:', error);
+        console.error('Error loading dashboard data:', error);
+        // Fallback to empty states
+      } finally {
+        this.loading = false;
       }
     },
 
-    async loadActivityLogs() {
-      try {
-        const response = await activityLogService.list({ limit: 10 });
-        this.activityLogs = response.data || [];
-      } catch (error) {
-        console.error('Error loading activity logs:', error);
+    updateChartData(period) {
+      this.chartPeriod = period;
+      
+      let stats;
+      if (period === 'week') {
+        stats = this.weeklyStats;
+      } else {
+        stats = this.monthlyStats;
       }
+
+      this.chartData = {
+        labels: stats.labels || [],
+        datasets: [
+          {
+            label: "Công việc hoàn thành",
+            data: stats.completed || [],
+            tension: 0.4,
+            fill: true,
+            borderColor: "#667eea",
+            backgroundColor: (context) => {
+              const ctx = context.chart.ctx;
+              const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+              gradient.addColorStop(0, 'rgba(102, 126, 234, 0.3)');
+              gradient.addColorStop(1, 'rgba(102, 126, 234, 0)');
+              return gradient;
+            },
+            pointBackgroundColor: "#667eea",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8
+          },
+          {
+            label: "Công việc tạo mới",
+            data: stats.created || [],
+            tension: 0.4,
+            fill: true,
+            borderColor: "#22c55e",
+            backgroundColor: (context) => {
+              const ctx = context.chart.ctx;
+              const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+              gradient.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+              gradient.addColorStop(1, 'rgba(34, 197, 94, 0)');
+              return gradient;
+            },
+            pointBackgroundColor: "#22c55e",
+            pointBorderColor: "#fff",
+            pointBorderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8
+          }
+        ]
+      };
     },
 
-    async loadTaskStats() {
-      try {
-        const response = await taskService.list();
-        const tasks = response.data || [];
-
-        this.taskStats.total = tasks.length;
-        this.taskStats.completed = tasks.filter(t => t.status === 'Hoàn thành' || t.status === 'completed').length;
-        this.taskStats.inProgress = tasks.filter(t => t.status === 'Đang làm' || t.status === 'in_progress').length;
-        this.taskStats.pending = tasks.filter(t => t.status === 'Cần làm' || t.status === 'pending' || t.status === 'Chưa bắt đầu').length;
-
-        const today = new Date();
-        this.taskStats.overdue = tasks.filter(t => {
-          if (t.status === 'Hoàn thành' || t.status === 'completed') return false;
-          if (!t.deadline) return false;
-          return new Date(t.deadline) < today;
-        }).length;
-      } catch (error) {
-        console.error('Error loading task stats:', error);
-      }
+    getProjectStatusClass(status) {
+      const statusMap = {
+        'Hoàn thành': 'completed',
+        'Sắp xong': 'almost',
+        'Đang thực hiện': 'active',
+        'Mới bắt đầu': 'new',
+        'Chưa bắt đầu': 'pending'
+      };
+      return statusMap[status] || 'active';
     },
 
-    async loadRecentTasks() {
-      try {
-        const response = await taskService.list();
-        this.recentTasks = (response.data || []).slice(0, 5);
-      } catch (error) {
-        console.error('Error loading recent tasks:', error);
+    generateTeamAvatars(projectName) {
+      // Generate pseudo-random team based on project name
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const count = (projectName.length % 4) + 2;
+      const avatars = [];
+      for (let i = 0; i < count; i++) {
+        avatars.push(letters[(projectName.charCodeAt(i % projectName.length) + i) % 26]);
       }
+      return avatars;
     },
 
     toggleNotifications() {
@@ -733,6 +1014,28 @@ export default {
         'low': 'low'
       };
       return priorityMap[priority] || 'default';
+    },
+
+    getPriorityPercent(level) {
+      const total = this.priorityStats.high + this.priorityStats.medium + this.priorityStats.low;
+      if (total === 0) return 0;
+      return Math.round((this.priorityStats[level] / total) * 100);
+    },
+
+    getDistributionPercent(value) {
+      const total = Object.values(this.progressStats.distribution).reduce((a, b) => a + b, 0);
+      if (total === 0) return 0;
+      return Math.round((value / total) * 100);
+    },
+
+    getDistClass(range) {
+      const classMap = {
+        '0-25': 'dist-low',
+        '26-50': 'dist-medium',
+        '51-75': 'dist-good',
+        '76-100': 'dist-excellent'
+      };
+      return classMap[range] || 'dist-default';
     }
   }
 }
@@ -746,6 +1049,65 @@ export default {
   background: #f0f4f8;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   position: relative;
+}
+
+/* ==================== LOADING OVERLAY ==================== */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(5px);
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-spinner span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.overdue-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 4px 10px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* ==================== ANIMATED BACKGROUND ==================== */
@@ -1932,6 +2294,253 @@ export default {
   
   .stat-value {
     font-size: 24px;
+  }
+}
+
+/* ==================== NEW STAT CARDS ==================== */
+.stat-card.stat-week {
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+}
+
+.stat-card.stat-avg-progress {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.stat-trend.down {
+  color: #ef4444;
+}
+
+.stat-trend.down i {
+  color: #ef4444;
+}
+
+/* ==================== CHART LEGEND ==================== */
+.chart-legend {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-color.purple {
+  background: #667eea;
+}
+
+.legend-color.green {
+  background: #22c55e;
+}
+
+/* ==================== PRIORITY CARD ==================== */
+.priority-card {
+  grid-column: span 4;
+}
+
+.title-icon.red {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.priority-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.priority-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.priority-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.priority-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.priority-count {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.priority-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.priority-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.priority-item.high .priority-fill {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.priority-item.medium .priority-fill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.priority-item.low .priority-fill {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.priority-pending {
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* ==================== PROGRESS DISTRIBUTION CARD ==================== */
+.progress-dist-card {
+  grid-column: span 4;
+}
+
+.title-icon.yellow {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.progress-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dist-item {
+  display: grid;
+  grid-template-columns: 60px 1fr 40px;
+  align-items: center;
+  gap: 12px;
+}
+
+.dist-label {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.dist-bar-container {
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.dist-bar {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s ease;
+}
+
+.dist-bar.dist-low {
+  background: linear-gradient(90deg, #ef4444, #f87171);
+}
+
+.dist-bar.dist-medium {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+
+.dist-bar.dist-good {
+  background: linear-gradient(90deg, #06b6d4, #22d3ee);
+}
+
+.dist-bar.dist-excellent {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.dist-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: right;
+}
+
+.progress-insights {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.insight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  color: #16a34a;
+}
+
+.insight i {
+  font-size: 16px;
+}
+
+.insight.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+/* ==================== EMPTY STATE BUTTON ==================== */
+.btn-create {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.btn-create:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* ==================== RESPONSIVE ADDITIONS ==================== */
+@media (max-width: 1200px) {
+  .priority-card,
+  .progress-dist-card {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 768px) {
+  .priority-card,
+  .progress-dist-card {
+    grid-column: span 12;
   }
 }
 </style>
