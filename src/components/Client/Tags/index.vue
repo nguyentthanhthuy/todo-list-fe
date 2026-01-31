@@ -1,6 +1,5 @@
 <template>
-    <AppLayout pageTitle="Quản lý nhãn">
-        <div class="tags-page container-fluid py-4">
+    <div class="tags-page container-fluid py-4">
             <div class="row justify-content-center">
                 <div class="col-12 col-xl-10">
                     <!-- HEADER -->
@@ -107,18 +106,16 @@
                 </div>
             </div>
         </div>
-    </AppLayout>
+    
 </template>
 
 <script>
 import tagService from "@/services/tagService";
-import AppLayout from "@/components/Common/AppLayout.vue";
 
 export default {
     name: "TagsManager",
 
     components: {
-        AppLayout,
     },
 
     data() {

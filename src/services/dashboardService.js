@@ -1,25 +1,25 @@
-import api from '../core/api'
+import api from '../core/baseRequest'
 
 const dashboardService = {
     /**
      * Lấy thống kê tổng quan dashboard
      */
     getStatistics() {
-        return api.get('/api/dashboard/statistics')
+        return api.get('/dashboard/statistics')
     },
 
     /**
      * Lấy danh sách task gần đây
      */
     getRecentTasks() {
-        return api.get('/api/dashboard/recent-tasks')
+        return api.get('/dashboard/recent-tasks')
     },
 
     /**
      * Lấy overview nhanh
      */
     getQuickOverview() {
-        return api.get('/api/dashboard/quick-overview')
+        return api.get('/dashboard/quick-overview')
     }
 }
 

@@ -433,10 +433,40 @@ export default {
 <style scoped>
 /* ==================== GLOBAL STYLES ==================== */
 .landing-page {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Be Vietnam Pro', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #fafafa;
   color: #1a1a2e;
   overflow-x: hidden;
+}
+
+.hero-title {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 800;
+}
+
+.hero-description {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 400;
+}
+
+.hero-badge {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 500;
+}
+
+.btn-primary, .btn-secondary {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 600;
+}
+
+.stat-number {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 700;
+}
+
+.stat-label {
+  font-family: 'Be Vietnam Pro', 'Inter', sans-serif;
+  font-weight: 400;
 }
 
 /* ==================== ANIMATED BACKGROUND ==================== */

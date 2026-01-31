@@ -49,6 +49,10 @@
             <div class="nav-icon"><i class="fa-solid fa-tags"></i></div>
             <span>Nhãn</span>
           </router-link>
+          <router-link to="/teams" class="nav-item">
+            <div class="nav-icon"><i class="fa-solid fa-users"></i></div>
+            <span>Teams</span>
+          </router-link>
           <router-link to="/reminders" class="nav-item">
             <div class="nav-icon"><i class="fa-solid fa-bell"></i></div>
             <span>Nhắc nhở</span>
@@ -61,6 +65,10 @@
           <router-link to="/driver" class="nav-item">
             <div class="nav-icon"><i class="fa-brands fa-google-drive"></i></div>
             <span>Google Drive</span>
+          </router-link>
+          <router-link to="/discord" class="nav-item">
+            <div class="nav-icon"><i class="fa-brands fa-discord"></i></div>
+            <span>Discord</span>
           </router-link>
         </div>
       </nav>

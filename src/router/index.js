@@ -99,6 +99,54 @@ const routes = [
       
     },
     {
+        path: '/discord',
+        name: 'Discord',
+        component: ()=>import('../components/Client/Discord/index.vue'),
+    },
+    // ============================================
+    // ADMIN ROUTES
+    // ============================================
+    {
+        path: '/admin',
+        name: 'AdminDashboard',
+        component: ()=>import('../components/Admin/Dashboard/index.vue'),
+        meta: { requiresAdmin: true }
+    },
+    {
+        path: '/admin/users',
+        name: 'AdminUsers',
+        component: ()=>import('../components/Admin/Users/index.vue'),
+        meta: { requiresAdmin: true }
+    },
+    {
+        path: '/admin/roles',
+        name: 'AdminRoles',
+        component: ()=>import('../components/Admin/Roles/index.vue'),
+        meta: { requiresAdmin: true }
+    },
+    // ============================================
+    // NOTIFICATIONS
+    // ============================================
+    {
+        path: '/notifications',
+        name: 'Notifications',
+        component: ()=>import('../components/Client/Notifications/index.vue'),
+    },
+    // ============================================
+    // TEAMS / WORKSPACE
+    // ============================================
+    {
+        path: '/teams',
+        name: 'Teams',
+        component: ()=>import('../components/Client/Teams/index.vue'),
+    },
+    {
+        path: '/teams/:id',
+        name: 'TeamDetail',
+        component: ()=>import('../components/Client/Teams/TeamDetail.vue'),
+        props: true,
+    },
+    {
         path: '/auth/callback',
         name: 'AuthCallback',
         component: () => import('../views/AuthCallback.vue')

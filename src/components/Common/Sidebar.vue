@@ -49,11 +49,27 @@
                 </router-link>
             </li>
             <li class="nav-item">
+                <router-link to="/teams" class="nav-link-modern" :class="{ active: isActive('/teams') }">
+                    <div class="icon-wrapper">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <span>Teams</span>
+                </router-link>
+            </li>
+            <li class="nav-item">
                 <router-link to="/driver" class="nav-link-modern" :class="{ active: isActive('/driver') }">
                     <div class="icon-wrapper">
                         <i class="fa-brands fa-google-drive"></i>
                     </div>
                     <span>Google Drive</span>
+                </router-link>
+            </li>
+            <li class="nav-item">
+                <router-link to="/discord" class="nav-link-modern" :class="{ active: isActive('/discord') }">
+                    <div class="icon-wrapper">
+                        <i class="fa-brands fa-discord"></i>
+                    </div>
+                    <span>Discord</span>
                 </router-link>
             </li>
             <li class="nav-item mt-auto">
